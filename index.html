@@ -1,0 +1,1364 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#07080c">
+<meta name="description" content="TikTok LIVE API — canlı yayın paneli, REST + WebSocket + SSE dokümantasyonu">
+<title>TikTok LIVE API — Panel</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2325f4ee'/%3E%3Cstop offset='1' stop-color='%23fe2c55'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M18 7c.6 3 2.5 4.6 5.5 4.8v3.1c-2 0-3.9-.7-5.5-1.9v6.3c0 3.7-2.6 5.7-5.6 5.7-3 0-5.4-2.2-5.4-5.2 0-3.2 2.8-5.4 6.2-5.1v3.2c-1.7-.4-3.1.6-3.1 2 0 1.2 1 2.1 2.3 2.1 1.5 0 2.4-1 2.4-2.8V7z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #07080c; --panel: #0e1118; --panel2: #151a23; --panel3: #1b2130;
+    --line: #1f2531; --line2: #2a3140;
+    --text: #e7eaf2; --muted: #8b93a7; --muted2: #626b80;
+    --cyan: #25f4ee; --pink: #fe2c55; --ok: #3ddc84; --warn: #ffb020; --err: #ff5470;
+    --gift: #ffd166; --blue: #5b8cff; --purple: #b18cff;
+    --r: 14px; --rs: 9px;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "JetBrains Mono", monospace;
+    --hh: 58px;
+  }
+  * { box-sizing: border-box; }
+  html { scrollbar-color: #2c3344 transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(700px 340px at 12% -12%, rgba(37,244,238,.06), transparent 60%),
+      radial-gradient(800px 380px at 88% -12%, rgba(254,44,85,.05), transparent 60%);
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #262d3c; border-radius: 99px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-track { background: transparent; }
+  button, input { font: inherit; color: inherit; }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: var(--mono); }
+  [hidden] { display: none !important; }
+
+  /* ---- açılış animasyonu (splash) ---- */
+  #splash {
+    position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px; background: var(--bg);
+    transition: opacity .55s ease;
+  }
+  #splash::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(900px 420px at 28% 22%, rgba(37,244,238,.10), transparent 62%),
+      radial-gradient(1000px 480px at 74% 78%, rgba(254,44,85,.11), transparent 62%);
+  }
+  #splash.out { opacity: 0; pointer-events: none; }
+  .s-logo { position: relative; width: 88px; height: 88px; display: grid; place-items: center; animation: s-in .7s .05s backwards cubic-bezier(.2,.9,.25,1.2); }
+  .s-logo::before, .s-logo::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(37,244,238,.4); animation: s-ring 2.2s infinite ease-out; }
+  .s-logo::after { border-color: rgba(254,44,85,.4); animation-delay: 1.1s; }
+  .s-logo svg { width: 48px; height: 48px; color: #fff; animation: s-beat 1.7s infinite ease-in-out; filter: drop-shadow(0 0 20px rgba(37,244,238,.35)); }
+  .s-title {
+    font-size: 46px; font-weight: 800; letter-spacing: .5px; color: var(--text); line-height: 1.1;
+    text-shadow: -2.5px -2.5px 0 rgba(37,244,238,.75), 2.5px 2.5px 0 rgba(254,44,85,.75);
+    animation: s-in .8s .2s backwards cubic-bezier(.2,.9,.25,1.2);
+  }
+  .s-title small { display: block; font-size: 15px; font-weight: 600; letter-spacing: 5px; color: var(--muted); text-shadow: none; margin-top: 6px; }
+  .s-dev { color: var(--muted); font-size: 14px; letter-spacing: 3px; text-transform: uppercase; animation: s-in .8s .5s backwards; }
+  .s-dev b { color: var(--text); font-weight: 700; }
+  .s-bar { width: 230px; height: 3px; border-radius: 99px; background: var(--panel2); overflow: hidden; margin-top: 10px; animation: s-in .6s .75s backwards; }
+  .s-bar i { display: block; height: 100%; width: 10%; border-radius: 99px; background: linear-gradient(90deg, var(--cyan), var(--pink)); animation: s-load 2.3s forwards ease-in-out; }
+  @keyframes s-in { from { opacity: 0; transform: translateY(16px) scale(.94); } }
+  @keyframes s-ring { 0% { transform: scale(.55); opacity: .9; } 100% { transform: scale(1.55); opacity: 0; } }
+  @keyframes s-beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+  @keyframes s-load { to { width: 100%; } }
+
+  /* ------------------------------------------------ header */
+  header {
+    position: sticky; top: 0; z-index: 20; height: var(--hh);
+    display: flex; align-items: center; gap: 12px; padding: 0 18px;
+    background: rgba(10,12,18,.82); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .2px; white-space: nowrap; }
+  .brand svg { width: 28px; height: 28px; flex: none; filter: drop-shadow(0 2px 8px rgba(37,244,238,.25)); }
+  .brand b { font-size: 15px; }
+  .brand span { color: var(--cyan); } .brand em { color: var(--pink); font-style: normal; }
+  .vpill { font: 11px var(--mono); color: var(--muted); background: var(--panel2); border: 1px solid var(--line); padding: 2px 7px; border-radius: 99px; }
+  .tabs { display: flex; gap: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-left: 6px; }
+  .tab { border: 0; background: transparent; color: var(--muted); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .tab:hover { color: var(--text); }
+  .tab.on { background: var(--panel3); color: var(--text); box-shadow: inset 0 0 0 1px var(--line2); }
+  .spacer { flex: 1; }
+  .live { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted2); flex: none; }
+  .dot.connected { background: var(--ok); box-shadow: 0 0 8px var(--ok); animation: pulse 2s infinite; }
+  .dot.connecting { background: var(--warn); }
+  .dot.error { background: var(--err); }
+  @keyframes pulse { 50% { opacity: .55; } }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: var(--rs);
+    padding: 8px 13px; cursor: pointer; font-size: 13px; font-weight: 600;
+    transition: border-color .15s, background .15s, transform .05s;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--cyan); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .5; cursor: default; transform: none; }
+  .btn.primary { background: linear-gradient(135deg, #ff3d63, var(--pink)); border-color: transparent; color: #fff; box-shadow: 0 4px 18px rgba(254,44,85,.25); }
+  .btn.primary:hover { filter: brightness(1.08); border-color: transparent; }
+  .btn.danger:hover { border-color: var(--err); color: var(--err); }
+  .btn.ghost { background: transparent; }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+  .btn.big { padding: 13px 28px; font-size: 15px; border-radius: 12px; }
+  .btn svg { width: 15px; height: 15px; flex: none; }
+  .spin { animation: rot .8s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+
+  /* ------------------------------------------------ offline */
+  #offline {
+    position: sticky; top: var(--hh); z-index: 15; text-align: center;
+    padding: 7px 16px; font-size: 13px; color: var(--warn);
+    background: rgba(255,176,32,.08); border-bottom: 1px solid rgba(255,176,32,.25);
+  }
+
+  /* ------------------------------------------------ panel layout */
+  .app { display: grid; grid-template-columns: 302px minmax(0, 1fr); min-height: calc(100vh - var(--hh)); position: relative; z-index: 1; }
+  aside {
+    border-right: 1px solid var(--line); background: rgba(14,17,24,.6);
+    padding: 16px; position: sticky; top: var(--hh); height: calc(100vh - var(--hh)); overflow-y: auto;
+  }
+  main { padding: 22px 24px 44px; min-width: 0; }
+  @media (max-width: 940px) {
+    .app { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    main { padding: 16px; }
+  }
+
+  aside h2, .card h3 {
+    margin: 0 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1.1px;
+    color: var(--muted); display: flex; align-items: center; gap: 8px;
+  }
+  aside .sect { margin-top: 22px; }
+  .count { margin-left: auto; font: 11px var(--mono); color: var(--muted2); background: var(--panel2); border-radius: 99px; padding: 1px 8px; }
+
+  form.add { display: flex; gap: 7px; }
+  form.add input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: var(--rs); padding: 9px 11px; transition: border-color .15s, box-shadow .15s; }
+  input:focus, .sfilter input:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(37,244,238,.12); }
+  .msg { font-size: 12.5px; color: var(--err); min-height: 19px; margin: 8px 0 0; overflow-wrap: anywhere; }
+
+  .sfilter { margin: 10px 0 6px; }
+  .sfilter input { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: var(--rs); padding: 7px 10px; font-size: 13px; transition: border-color .15s; }
+
+  .srow {
+    display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px;
+    cursor: pointer; border: 1px solid transparent; margin-bottom: 2px;
+  }
+  .srow:hover { background: var(--panel2); }
+  .srow.sel { background: var(--panel2); border-color: var(--line2); }
+  .srow .sinfo { flex: 1; min-width: 0; }
+  .srow b { display: block; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .srow small { color: var(--muted); font-size: 11.5px; }
+  .pwrap { position: relative; width: 36px; height: 36px; flex: none; }
+  .pava { position: absolute; inset: 0; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: #dfe5f0; background: linear-gradient(135deg, #262d3c, #38404f); }
+  .pava.a1 { background: linear-gradient(135deg, #113c3b, #1d6a67); }
+  .pava.a2 { background: linear-gradient(135deg, #41121f, #7a2438); }
+  .pava.a3 { background: linear-gradient(135deg, #1c2748, #2f4a8a); }
+  img.pava { object-fit: cover; }
+  .sdot { position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--panel); background: var(--muted2); }
+  .sdot.connected { background: var(--ok); }
+  .sdot.connecting { background: var(--warn); }
+  .sdot.error { background: var(--err); }
+  .sstop { border: 0; background: transparent; color: var(--muted2); cursor: pointer; border-radius: 6px; padding: 4px 6px; opacity: 0; transition: opacity .12s; flex: none; }
+  .srow:hover .sstop { opacity: 1; }
+  .sstop:hover { color: var(--err); background: rgba(255,84,112,.1); }
+  .sfav { border: 0; background: transparent; color: var(--muted2); cursor: pointer; padding: 4px 5px; border-radius: 6px; opacity: 0; font-size: 14px; line-height: 1; transition: opacity .12s, color .12s; flex: none; }
+  .srow:hover .sfav { opacity: 1; }
+  .sfav.on { color: var(--gift); opacity: 1; }
+  .sfav:hover { color: var(--gift); }
+  .frow { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 9px; cursor: pointer; border: 1px solid transparent; margin-bottom: 2px; font-size: 13px; }
+  .frow:hover { background: var(--panel2); }
+  .frow b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .frow .fdel, .frow .fgo { border: 0; background: transparent; cursor: pointer; border-radius: 6px; padding: 3px 6px; color: var(--muted2); flex: none; }
+  .frow .fgo { color: var(--ok); }
+  .frow .fdel:hover { color: var(--err); background: rgba(255,84,112,.1); }
+  .frow .fgo:hover { background: rgba(61,220,132,.1); }
+  .empty { color: var(--muted2); padding: 12px 4px; font-size: 13px; }
+
+  /* ------------------------------------------------ welcome */
+  .welcome { max-width: 680px; margin: 9vh auto 0; text-align: center; }
+  .welcome h2 { font-size: 36px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -.5px; }
+  .welcome h2 span { color: var(--cyan); } .welcome h2 em { color: var(--pink); font-style: normal; }
+  .welcome > p { color: var(--muted); margin: 0 auto 26px; max-width: 460px; }
+  .recent { margin: 20px 0 24px; color: var(--muted); font-size: 13px; }
+  .chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 99px; padding: 4px 12px; margin: 3px; cursor: pointer; color: var(--cyan); font-size: 12.5px; transition: border-color .15s; }
+  .chip:hover { border-color: var(--cyan); }
+  .feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 30px; }
+  @media (max-width: 620px) { .feats { grid-template-columns: 1fr; } .welcome h2 { font-size: 27px; } }
+  .feat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 14px 12px; text-align: left; }
+  .feat .fi { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--panel3); color: var(--cyan); margin-bottom: 9px; }
+  .feat b { display: block; font-size: 13px; margin-bottom: 2px; }
+  .feat small { color: var(--muted); font-size: 12px; line-height: 1.45; display: block; }
+  .placeholder { text-align: center; color: var(--muted); padding: 90px 20px; }
+
+  /* ------------------------------------------------ dashboard */
+  .top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .top h2 { margin: 0; font-size: 22px; letter-spacing: -.3px; overflow-wrap: anywhere; }
+  .badge { padding: 4px 11px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--panel2); border: 1px solid var(--line2); }
+  .badge.connected { color: var(--ok); border-color: rgba(61,220,132,.45); background: rgba(61,220,132,.07); }
+  .badge.connecting { color: var(--warn); border-color: rgba(255,176,32,.4); }
+  .badge.error { color: var(--err); border-color: rgba(255,84,112,.4); }
+  .badge.disconnected, .badge.ended { color: var(--muted); }
+  #uptime { color: var(--muted); font-size: 12.5px; }
+  .goalbar { display: flex; align-items: center; gap: 10px; margin: 8px 0 2px; }
+  .gb-track { flex: 1; height: 10px; background: var(--panel2); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+  .gb-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--pink)); border-radius: 99px; transition: width .5s; }
+  .gb-text { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .gb-text.done { color: var(--ok); }
+  .err { color: var(--err); font-size: 13px; margin: 4px 0 10px; min-height: 18px; overflow-wrap: anywhere; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; margin: 14px 0; }
+  .stat { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: var(--r); padding: 13px 14px; position: relative; overflow: hidden; }
+  .stat::after { content: ""; position: absolute; inset: 0 0 auto 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent); }
+  .stat span { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .7px; }
+  .stat span svg { width: 14px; height: 14px; }
+  .stat b { display: block; font-size: 23px; margin-top: 6px; font-variant-numeric: tabular-nums; letter-spacing: -.4px; }
+  .stat.viewers svg { color: var(--cyan); } .stat.viewers b { color: var(--cyan); }
+  .stat.gift svg { color: var(--gift); } .stat.gift b { color: var(--gift); }
+  .stat.likes svg { color: var(--pink); }
+  .stat.chat svg { color: var(--blue); } .stat.follow svg { color: var(--ok); }
+  .stat.share svg { color: var(--purple); } .stat.join svg { color: var(--muted); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; min-width: 0; }
+  .card h3 .chip-v { margin-left: auto; font: 11.5px var(--mono); color: var(--muted); background: var(--panel2); border: 1px solid var(--line); padding: 2px 8px; border-radius: 99px; font-variant-numeric: tabular-nums; }
+
+  .cols { display: grid; grid-template-columns: 1.65fr 1fr; gap: 10px; }
+  @media (max-width: 1100px) { .cols { grid-template-columns: 1fr; } }
+  .side { display: grid; gap: 10px; align-content: start; }
+
+  .filters { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
+  .fchip { position: relative; cursor: pointer; user-select: none; }
+  .fchip input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .fchip span { display: inline-block; padding: 4px 11px; border-radius: 99px; font-size: 12px; background: var(--panel2); border: 1px solid var(--line); color: var(--muted); transition: all .15s; }
+  .fchip input:checked + span { color: var(--text); border-color: var(--line2); background: var(--panel3); }
+  .fchip input:checked + span::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; background: currentColor; vertical-align: 1px; }
+  .fchip[data-k="gift"] input:checked + span { color: var(--gift); border-color: rgba(255,209,102,.4); }
+  .fchip[data-k="chat"] input:checked + span { color: var(--blue); border-color: rgba(91,140,255,.4); }
+  .fchip[data-k="follow"] input:checked + span { color: var(--pink); border-color: rgba(254,44,85,.4); }
+  .fchip[data-k="share"] input:checked + span { color: var(--purple); border-color: rgba(177,140,255,.4); }
+  .fchip[data-k="like"] input:checked + span { color: var(--err); border-color: rgba(255,84,112,.4); }
+  .fchip[data-k="member"] input:checked + span { color: var(--ok); border-color: rgba(61,220,132,.4); }
+  .feedhead { display: flex; align-items: center; }
+  .feedhead h3 { flex: 1; }
+
+  #feed { height: 470px; overflow-y: auto; font-size: 13px; padding-right: 4px; }
+  .ev { display: flex; gap: 9px; padding: 7px 6px; border-radius: 10px; border-bottom: 1px solid var(--line); animation: rise .18s ease-out; }
+  @keyframes rise { from { opacity: 0; transform: translateY(-4px); } }
+  .ev.gift { background: rgba(255,209,102,.05); }
+  .evm { flex: 1; min-width: 0; }
+  .evt { display: flex; align-items: center; gap: 7px; }
+  .evt b { font-size: 12.5px; color: var(--cyan); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .evt time { margin-left: auto; color: var(--muted2); font-size: 10.5px; font-variant-numeric: tabular-nums; flex: none; }
+  .tag { font-size: 9.5px; font-weight: 800; letter-spacing: .5px; padding: 2px 6px; border-radius: 5px; flex: none; background: var(--panel3); color: var(--muted); }
+  .t-gift { background: rgba(255,209,102,.14); color: var(--gift); }
+  .t-chat { background: rgba(91,140,255,.14); color: var(--blue); }
+  .t-like { background: rgba(255,84,112,.14); color: var(--err); }
+  .t-follow { background: rgba(254,44,85,.16); color: var(--pink); }
+  .t-share { background: rgba(177,140,255,.14); color: var(--purple); }
+  .t-member { background: rgba(61,220,132,.14); color: var(--ok); }
+  .evx { margin-top: 2px; color: #c9d0df; overflow-wrap: anywhere; }
+  .evx em { color: var(--gift); font-style: normal; font-weight: 600; }
+  .ava { width: 26px; height: 26px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #dfe5f0; background: linear-gradient(135deg, #262d3c, #38404f); object-fit: cover; }
+  .ava.a1 { background: linear-gradient(135deg, #113c3b, #1d6a67); }
+  .ava.a2 { background: linear-gradient(135deg, #41121f, #7a2438); }
+  .ava.a3 { background: linear-gradient(135deg, #1c2748, #2f4a8a); }
+  .gimg { width: 20px; height: 20px; border-radius: 5px; vertical-align: -5px; margin-right: 5px; }
+
+  .list .row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .list .row:last-child { border-bottom: 0; }
+  .list .row .gi { width: 18px; height: 18px; border-radius: 4px; flex: none; object-fit: cover; }
+  .list .row .gi-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gift); flex: none; margin: 0 6px; }
+  .list .row .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .list .row .v { color: var(--gift); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .list .row .c { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+  .list .rank { color: var(--muted2); width: 22px; text-align: center; font-weight: 700; font-size: 12px; flex: none; }
+  .list .rank.m1 { color: #ffd166; } .list .rank.m2 { color: #cfd6e4; } .list .rank.m3 { color: #d0906a; }
+  .list .rava { width: 22px; height: 22px; font-size: 10px; }
+
+  /* ------------------------------------------------ docs */
+  .docs { display: grid; grid-template-columns: 216px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 26px 22px 50px; position: relative; z-index: 1; }
+  @media (max-width: 940px) { .docs { grid-template-columns: 1fr; } .docs nav { display: none; } }
+  .docs nav { position: sticky; top: calc(var(--hh) + 18px); align-self: start; display: grid; gap: 2px; }
+  .docs nav a { display: block; padding: 6px 12px; color: var(--muted); border-left: 2px solid var(--line); font-size: 13px; border-radius: 0 8px 8px 0; }
+  .docs nav a:hover { color: var(--text); text-decoration: none; background: var(--panel2); }
+  .docs section { margin-bottom: 42px; scroll-margin-top: calc(var(--hh) + 14px); }
+  .docs h2 { font-size: 20px; margin: 0 0 6px; letter-spacing: -.3px; }
+  .docs h2 code { font-size: 15px; color: var(--cyan); }
+  .docs .lead { color: var(--muted); margin: 0 0 16px; max-width: 640px; }
+  .ep { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; margin-bottom: 12px; }
+  .ep-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ep-p { font: 13px var(--mono); color: var(--cyan); overflow-wrap: anywhere; }
+  .ep-d { color: var(--muted); font-size: 13px; margin: 7px 0 0; }
+  .ep-d code { color: #c9d0df; background: var(--panel2); padding: 1px 5px; border-radius: 5px; font-size: 11.5px; }
+  .mb { font: 11px var(--mono); padding: 4px 9px; border-radius: 6px; font-weight: 800; letter-spacing: .4px; flex: none; }
+  .m-GET { color: var(--cyan); background: rgba(37,244,238,.09); border: 1px solid rgba(37,244,238,.3); }
+  .m-POST { color: var(--pink); background: rgba(254,44,85,.09); border: 1px solid rgba(254,44,85,.3); }
+  .m-DELETE { color: var(--err); background: rgba(255,84,112,.09); border: 1px solid rgba(255,84,112,.3); }
+  .m-WS { color: var(--gift); background: rgba(255,209,102,.09); border: 1px solid rgba(255,209,102,.3); }
+  .m-SSE { color: var(--purple); background: rgba(177,140,255,.09); border: 1px solid rgba(177,140,255,.3); }
+  .codebox { position: relative; margin-top: 10px; }
+  pre.code {
+    background: #090b10; border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 90px 12px 14px; overflow-x: auto; margin: 0;
+    font: 12.5px/1.6 var(--mono); color: #cdd6e6; white-space: pre;
+  }
+  .copy { position: absolute; top: 8px; right: 8px; background: var(--panel3); border: 1px solid var(--line2); color: var(--muted); border-radius: 7px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-weight: 600; }
+  .copy:hover { color: var(--cyan); border-color: var(--cyan); }
+  .evgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+  .evcard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 13px 15px; }
+  .evcard .evx { margin-top: 4px; color: var(--muted); font-size: 12.5px; }
+  .authrow { display: flex; gap: 12px; flex-wrap: wrap; }
+  .authcard { flex: 1; min-width: 260px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; }
+  .authcard b { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13.5px; }
+  .authcard p { color: var(--muted); font-size: 12.5px; margin: 0 0 4px; }
+  table.env { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+  table.env th, table.env td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: top; }
+  table.env th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .8px; background: var(--panel2); }
+  table.env tr:last-child td { border-bottom: 0; }
+  table.env td:first-child code { color: var(--cyan); font-size: 12.5px; }
+  table.env td:nth-child(2) { color: var(--muted); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  table.env td:last-child { color: var(--muted); }
+  .note { background: rgba(37,244,238,.05); border: 1px solid rgba(37,244,238,.2); border-radius: var(--rs); padding: 10px 14px; font-size: 13px; color: var(--muted); margin: 12px 0 0; }
+  .note b { color: var(--cyan); }
+
+  /* ------------------------------------------------ footer */
+  footer {
+    border-top: 1px solid var(--line); padding: 16px 22px; display: flex; gap: 12px; align-items: center;
+    color: var(--muted2); font-size: 12.5px; position: relative; z-index: 1; flex-wrap: wrap;
+  }
+  footer .fbrand { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  footer .fbrand svg { width: 18px; height: 18px; }
+  footer a { color: var(--muted); }
+  footer a:hover { color: var(--cyan); }
+
+  /* ------------------------------------------------ modal & toast */
+  .overlay { position: fixed; inset: 0; z-index: 60; background: rgba(4,5,8,.62); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity .15s; }
+  .overlay.in { opacity: 1; }
+  .modal { width: 420px; max-width: 100%; background: var(--panel); border: 1px solid var(--line2); border-radius: 16px; padding: 20px; box-shadow: 0 24px 70px rgba(0,0,0,.5); transform: translateY(10px) scale(.98); transition: transform .18s; }
+  .overlay.in .modal { transform: none; }
+  .modal h3 { margin: 0 0 6px; font-size: 16px; display: flex; align-items: center; gap: 9px; }
+  .modal h3 svg { color: var(--cyan); }
+  .modal p { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .modal p code { font-size: 11.5px; color: #c9d0df; background: var(--panel2); padding: 1px 5px; border-radius: 5px; }
+  .modal input { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; font-family: var(--mono); font-size: 13px; }
+  .mrow { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
+  .mrow .btn { padding: 8px 15px; }
+  .mrow .left { margin-right: auto; }
+  .csvlinks { display: grid; gap: 8px; margin-top: 12px; }
+  .csvlinks .btn { justify-content: flex-start; text-decoration: none; }
+
+  #toasts { position: fixed; right: 18px; bottom: 18px; z-index: 80; display: grid; gap: 8px; width: min(360px, calc(100vw - 36px)); }
+  .toast {
+    background: var(--panel3); border: 1px solid var(--line2); border-left: 3px solid var(--cyan);
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    opacity: 0; transform: translateY(6px); transition: all .2s; overflow-wrap: anywhere;
+  }
+  .toast.in { opacity: 1; transform: none; }
+  .toast.ok { border-left-color: var(--ok); }
+  .toast.err { border-left-color: var(--err); }
+  .toast.warn { border-left-color: var(--warn); }
+</style>
+</head>
+<body>
+
+<div id="splash" aria-hidden="true">
+  <div class="s-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+  </div>
+  <div class="s-title">TikTok LIVE API<small>canlı yayın paneli</small></div>
+  <div class="s-dev">Developer by <b>Gökdağ Kandemir</b></div>
+  <div class="s-bar"><i></i></div>
+</div>
+
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#25f4ee"/><stop offset="1" stop-color="#fe2c55"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M18 7c.6 3 2.5 4.6 5.5 4.8v3.1c-2 0-3.9-.7-5.5-1.9v6.3c0 3.7-2.6 5.7-5.6 5.7-3 0-5.4-2.2-5.4-5.2 0-3.2 2.8-5.4 6.2-5.1v3.2c-1.7-.4-3.1.6-3.1 2 0 1.2 1 2.1 2.3 2.1 1.5 0 2.4-1 2.4-2.8V7z" fill="#fff"/></svg>
+    <b><span>TikTok</span> <em>LIVE</em> API</b>
+    <span class="vpill">v1.0</span>
+  </div>
+  <nav class="tabs" aria-label="Görünüm seç">
+    <button class="tab on" id="tab-panel" type="button">Panel</button>
+    <button class="tab" id="tab-api" type="button">API Dokümantasyonu</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="live"><span class="dot" id="wsdot"></span><span id="wstext">bağlanıyor…</span></div>
+  <button class="btn ghost" id="keybtn" title="API anahtarını gir">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="11" r="2.5"/><path d="M7 9.5L13.5 3M11 5.5l2 2M9 7.5l2 2"/></svg>
+    API anahtarı
+  </button>
+</header>
+
+<div id="offline" hidden>Sunucuya ulaşılamıyor — bağlantı kurulunca otomatik devam eder.</div>
+
+<!-- ==================== PANEL ==================== -->
+<div id="view-panel">
+  <div class="app">
+    <aside>
+      <h2>Yayına bağlan</h2>
+      <form class="add" id="addform">
+        <input id="uname" placeholder="kullanıcı adı / link" autocomplete="off" spellcheck="false" aria-label="Kullanıcı adı">
+        <button class="btn primary" id="addbtn" type="submit">Bağlan</button>
+      </form>
+      <div class="msg" id="addmsg"></div>
+
+      <div class="sect">
+        <h2>Favoriler</h2>
+        <div id="favs"></div>
+      </div>
+
+      <div class="sect">
+        <h2>Bağlı yayınlar <span class="count" id="scount">0</span></h2>
+        <div class="sfilter"><input id="sfilter" placeholder="Filtrele…" autocomplete="off" spellcheck="false" aria-label="Yayın filtrele"></div>
+        <div id="streams"></div>
+      </div>
+    </aside>
+
+    <main>
+      <div id="main-empty" hidden>
+        <div class="welcome" id="welcome">
+          <h2><span>TikTok</span> <em>LIVE</em> yayını ekle</h2>
+          <p>Kullanıcı adı ya da yayın linkini yaz — hediye, mesaj, beğeni ve izleyici verileri canlı olarak aksın.</p>
+          <button class="btn primary big" id="addbig" type="button">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+            Yayın ekle
+          </button>
+          <div class="recent" id="recent"></div>
+          <div class="feats">
+            <div class="feat"><div class="fi"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></div><b>REST API</b><small>Bağlantı, istatistik, olay geçmişi ve hediye özeti uç noktaları.</small></div>
+            <div class="feat"><div class="fi" style="color:var(--pink)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h12v8H6.5L3 13.5V11H2z"/></svg></div><b>WebSocket &amp; SSE</b><small>Olayları gerçek zamanlı dinle; alan ve tür filtreleriyle.</small></div>
+            <div class="feat"><div class="fi" style="color:var(--gift)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="12" height="8" rx="1.5"/><path d="M2 9.5h12M8 6v8M4.8 6C3.6 6 3 5.2 3 4.4 3 3.6 3.7 3 4.5 3c1.5 0 3 2 3.5 3-.5-1-2-3-3.5-3zM11.2 6C12.4 6 13 5.2 13 4.4 13 3.6 12.3 3 11.5 3 10 3 8.5 5 8 6c.5-1 2-3 3.5-3z"/></svg></div><b>Hediye takibi</b><small>Elmas toplamı, hediye kırılımı ve en çok hediye gönderenler.</small></div>
+          </div>
+        </div>
+        <div class="placeholder" id="pick" hidden>Soldaki listeden bir yayın seç.</div>
+      </div>
+
+      <div id="main" hidden>
+        <div class="top">
+          <h2 id="title"></h2>
+          <span class="badge" id="badge"></span>
+          <span id="uptime"></span>
+          <div class="spacer"></div>
+          <button class="btn" id="reconnectbtn" hidden title="Bağlantıyı zorla yenile">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.5v3h-3"/></svg>
+            Yeniden bağlan
+          </button>
+          <button class="btn" id="goalbtn" type="button" title="Elmas hedefi">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.6"/></svg>
+            Hedef
+          </button>
+          <button class="btn" id="obsbtn" type="button" title="OBS overlay linkini kopyala">OBS</button>
+          <button class="btn" id="csvbtn" type="button" title="Arşivi CSV olarak indir">CSV</button>
+          <button class="btn" id="soundbtn" type="button" title="Hedef sesi aç/kapat">
+            <svg id="snd-on" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.5v3h2.5L8 12.5v-9L4.5 6.5z"/><path d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12.5 3.5a6 6 0 0 1 0 9"/></svg>
+            <svg id="snd-off" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M2 6.5v3h2.5L8 12.5v-9L4.5 6.5z"/><path d="M10.5 6l4 4M14.5 6l-4 4"/></svg>
+          </button>
+          <button class="btn danger" id="stopbtn">
+            <svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1.5"/></svg>
+            Bağlantıyı kapat
+          </button>
+        </div>
+        <div class="goalbar" id="goalbar" hidden>
+          <div class="gb-track"><div class="gb-fill" id="gbfill"></div></div>
+          <span class="gb-text" id="gbtext"></span>
+        </div>
+        <div class="err" id="err"></div>
+
+        <div class="stats">
+          <div class="stat viewers"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>İzleyici</span><b id="s-viewers">0</b></div>
+          <div class="stat gift"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 1.5l4.5 4L8 14.5l-4.5-9z"/><path d="M3.5 5.5h9M8 1.5v13" stroke-linecap="round"/></svg>Toplam elmas</span><b id="s-diamonds">0</b></div>
+          <div class="stat gift"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="12" height="8" rx="1.5"/><path d="M2 9.5h12M8 6v8M4.8 6C3.6 6 3 5.2 3 4.4 3 3.6 3.7 3 4.5 3c1.5 0 3 2 3.5 3-.5-1-2-3-3.5-3zM11.2 6C12.4 6 13 5.2 13 4.4 13 3.6 12.3 3 11.5 3 10 3 8.5 5 8 6c.5-1 2-3 3.5-3z"/></svg>Hediye</span><b id="s-gifts">0</b></div>
+          <div class="stat likes"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 13.5S2 10 2 5.8C2 3.9 3.5 2.5 5.3 2.5c1.1 0 2.1.5 2.7 1.4.6-.9 1.6-1.4 2.7-1.4C12.5 2.5 14 3.9 14 5.8c0 4.2-6 7.7-6 7.7z"/></svg>Beğeni</span><b id="s-likes">0</b></div>
+          <div class="stat chat"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2 3h12v8H6.5L3 13.5V11H2z" stroke-linecap="round"/></svg>Mesaj</span><b id="s-chat">0</b></div>
+          <div class="stat follow"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="5.5" r="2.5"/><path d="M1.5 13.5c0-2.2 2-3.7 4.5-3.7s4.5 1.5 4.5 3.7M12 5v4M10 7h4"/></svg>Takip</span><b id="s-follow">0</b></div>
+          <div class="stat share"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5l4 3-4 3v-2c-3.5 0-5.5 1.5-6.5 4.5 0-4 2.5-6.5 6.5-6.5z"/></svg>Paylaşım</span><b id="s-share">0</b></div>
+          <div class="stat join"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5H13a.5.5 0 0 1 .5.5v10a.5.5 0 0 1-.5.5H9.5M6.5 5L3 8l3.5 3M3 8h7"/></svg>Odaya giriş</span><b id="s-join">0</b></div>
+        </div>
+
+        <div class="cols">
+          <div class="card">
+            <div class="feedhead">
+              <h3>Canlı olay akışı</h3>
+              <button class="btn sm ghost" id="feedclear" type="button" title="Görüntülenen olayları temizle">Temizle</button>
+            </div>
+            <div class="filters" id="filters">
+              <label class="fchip" data-k="gift"><input type="checkbox" value="gift" checked><span>Hediye</span></label>
+              <label class="fchip" data-k="chat"><input type="checkbox" value="chat" checked><span>Mesaj</span></label>
+              <label class="fchip" data-k="follow"><input type="checkbox" value="follow" checked><span>Takip</span></label>
+              <label class="fchip" data-k="share"><input type="checkbox" value="share" checked><span>Paylaşım</span></label>
+              <label class="fchip" data-k="like"><input type="checkbox" value="like"><span>Beğeni</span></label>
+              <label class="fchip" data-k="member"><input type="checkbox" value="member"><span>Giriş</span></label>
+            </div>
+            <div id="feed"></div>
+          </div>
+          <div class="side">
+            <div class="card list"><h3>En çok hediye gönderenler</h3><div id="gifters"></div></div>
+            <div class="card list"><h3>Hediye kırılımı</h3><div id="gifts"></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ==================== API DOKÜMANTASYONU ==================== -->
+<div id="view-api" hidden>
+  <div class="docs">
+    <nav aria-label="İçindekiler">
+      <a href="#docs-start">Hızlı başlangıç</a>
+      <a href="#docs-auth">Kimlik doğrulama</a>
+      <a href="#docs-endpoints">Uç noktalar</a>
+      <a href="#docs-domain">Domain erişimi</a>
+      <a href="#docs-events">Olay türleri</a>
+      <a href="#docs-ws">WebSocket</a>
+      <a href="#docs-sse">Server-Sent Events</a>
+      <a href="#docs-webhook">Webhook</a>
+      <a href="#docs-env">Ortam değişkenleri</a>
+    </nav>
+    <div>
+      <section id="docs-start">
+        <h2>Hızlı başlangıç</h2>
+        <p class="lead">Sunucu çalışırken (npm start ya da baslat.bat) aşağıdaki adımlarla herhangi bir TikTok canlı yayınını dinlemeye başla. Tüm uç noktaların canlı listesi için <a href="/api" target="_blank" rel="noopener">GET /api</a> adresine bak.</p>
+        <div id="doc-quick"></div>
+        <p class="note"><b>Domain:</b> Panel localhost dışında bir alan adından da çalışır — bkz. <a href="#docs-domain">Domain erişimi</a>.</p>
+      </section>
+
+      <section id="docs-auth">
+        <h2>Kimlik doğrulama</h2>
+        <p class="lead">Sunucu <code>API_KEY</code> ortam değişkeniyle başlatıldıysa tüm isteklerde anahtar gerekir. <code>API_KEY</code> tanımlı değilse sunucu açılışta rastgele bir anahtar üretir, <code>data/apikey.json</code> dosyasına kaydeder ve konsola yazar — panelde anahtar butonuyla gir.</p>
+        <div class="authrow">
+          <div class="authcard"><b>HTTP başlığı</b><p>Tüm REST isteklerinde:</p><div class="codebox"><pre class="code">x-api-key: ANAHTAR</pre></div></div>
+          <div class="authcard"><b>URL parametresi</b><p>SSE ve WebSocket bağlantılarında:</p><div class="codebox"><pre class="code">/api/streams/:user/sse?key=ANAHTAR
+/ws?username=:user&key=ANAHTAR</pre></div></div>
+        </div>
+      </section>
+
+      <section id="docs-endpoints">
+        <h2>Uç noktalar</h2>
+        <p class="lead">Yayın yönetimi, istatistik ve olay uçları. <code>:username</code> TikTok kullanıcı adıdır.</p>
+        <div id="doc-endpoints"></div>
+      </section>
+
+      <section id="docs-domain">
+        <h2>Domain erişimi</h2>
+        <p class="lead">Panel ve API yalnızca localhost'a bağlı değildir; sunucuyu bir alan adından ya da ağdaki başka bir makineden kullanmak için:</p>
+        <div id="doc-domain"></div>
+        <p class="note"><b>Not:</b> Panel tüm istekleri göreli adreslerle yapar (<code>/api</code>, <code>/ws</code>) — domain'e taşındığında ek panel ayarı gerekmez. HTTPS arkasındaysa WebSocket otomatik <code>wss</code> olur. Dışarıya açarken <code>API_KEY</code> tanımlayın.</p>
+      </section>
+
+      <section id="docs-events">
+        <h2>Olay türleri</h2>
+        <p class="lead">WebSocket, SSE ve webhook üzerinden gelen olay nesneleri. Her olayda <code>ts</code> (ms) alanı bulunur; WS/SSE akışında ayrıca <code>username</code> eklenir.</p>
+        <div class="evgrid" id="doc-events"></div>
+      </section>
+
+      <section id="docs-ws">
+        <h2>WebSocket</h2>
+        <p class="lead">Tek soketten tüm yayınları ya da belirli bir yayını dinle. Bağlantı açıkken <code>{"types":["gift"]}</code>, <code>{"username":"…"}</code> ve <code>{"fields":[…]}</code> mesajlarıyla filtreyi değiştirebilirsin.</p>
+        <div id="doc-ws"></div>
+      </section>
+
+      <section id="docs-sse">
+        <h2>Server-Sent Events</h2>
+        <p class="lead">Tarayıcıdan kolay dinleme; <code>event:</code> adı olay türüdür (örn. <code>gift</code>), ilk olay <code>hello</code> yayın özetidir.</p>
+        <div id="doc-sse"></div>
+      </section>
+
+      <section id="docs-webhook">
+        <h2>Webhook</h2>
+        <p class="lead"><code>WEBHOOK_URL</code> tanımlıysa her olay, sunucu tarafından kendi adresine <code>POST</code> edilir. Gövde: <code>{ "username": "…", ...olay }</code>. API anahtarı tanımlıysa <code>x-api-key</code> başlığı da gönderilir.</p>
+        <div class="codebox"><pre class="code">POST /senin/webhook/adresin
+x-api-key: ANAHTAR            (API_KEY tanımlıysa)
+
+{ "username": "virexhub1", "type": "gift", "ts": 1730000000000,
+  "user": { "uniqueId": "ayse" }, "giftName": "Rose",
+  "repeatCount": 5, "diamonds": 5, "countable": true }</pre></div>
+      </section>
+
+      <section id="docs-env">
+        <h2>Ortam değişkenleri</h2>
+        <p class="lead">Tüm ayarlar ortam değişkenleriyle yapılır; hiçbiri zorunlu değildir.</p>
+        <table class="env">
+          <thead><tr><th>Değişken</th><th>Varsayılan</th><th>Açıklama</th></tr></thead>
+          <tbody>
+            <tr><td><code>PORT</code></td><td>3000</td><td>HTTP + WebSocket portu (doluysa sıradaki boş port denenir)</td></tr>
+            <tr><td><code>HOST</code></td><td>127.0.0.1</td><td>Dışarıdan erişim için <code>0.0.0.0</code> (API_KEY ile birlikte önerilir)</td></tr>
+            <tr><td><code>API_KEY</code></td><td>otomatik üretilir</td><td>Tanımlıysa onu kullanır; değilse açılışta rastgele üretip <code>data/apikey.json</code>'a kaydeder ve konsola yazar</td></tr>
+            <tr><td><code>MAX_EVENTS</code></td><td>500</td><td>Yayın başına bellekte tutulan olay sayısı</td></tr>
+            <tr><td><code>TIKTOK_SESSIONID</code></td><td>—</td><td>Opsiyonel oturum çerezi (bazı yayınlar için gerekebilir)</td></tr>
+            <tr><td><code>TIKTOK_TT_TARGET_IDC</code></td><td>—</td><td>Oturum kullanıldığında veri merkezi (örn. use2)</td></tr>
+            <tr><td><code>EULER_API_KEY</code></td><td>—</td><td>İmza servisi (Euler Stream) anahtarı</td></tr>
+            <tr><td><code>WEBHOOK_URL</code></td><td>—</td><td>Tanımlıysa olaylar bu adrese POST edilir</td></tr>
+            <tr><td><code>DISCORD_WEBHOOK_URL</code></td><td>—</td><td>Elmas hedefi ulaşıldığında Discord'a mesaj gönderir</td></tr>
+            <tr><td><code>TELEGRAM_BOT_TOKEN</code></td><td>—</td><td>TOKEN + CHAT_ID ikisi de tanımlıysa hedef bildirimi Telegram'a gider</td></tr>
+            <tr><td><code>TELEGRAM_CHAT_ID</code></td><td>—</td><td>Telegram bildirim hedefi sohbet kimliği</td></tr>
+            <tr><td><code>AUTO_CONNECT</code></td><td>1</td><td><code>0</code> ise sunucu açılışında favorilere otomatik bağlanmaz</td></tr>
+            <tr><td><code>ARCHIVE</code></td><td>1</td><td><code>0</code> ise olaylar/örnekler kalıcı kaydedilmez (CSV boş döner)</td></tr>
+            <tr><td><code>DATA_DIR</code></td><td>data</td><td>SQLite arşivi (archive.db), favoriler ve hedefler dosyalarının klasörü</td></tr>
+            <tr><td><code>CSV_SEP</code></td><td>;</td><td>CSV ayırıcı (Excel TR için <code>;</code>, İngilizce için <code>,</code>)</td></tr>
+            <tr><td><code>GIFT_CATALOG</code></td><td>0</td><td><code>1</code> ise hediye kataloğu önceden çekilir (ücretli plan gerekebilir)</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:12px">Değerler proje klasöründeki <code>.env</code> dosyasından da okunur (örnek: <code>.env.ornek</code>); ortam değişkeni tanımlıysa onun değeri önceliklidir.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="fbrand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#262d3c"/><path d="M18 7c.6 3 2.5 4.6 5.5 4.8v3.1c-2 0-3.9-.7-5.5-1.9v6.3c0 3.7-2.6 5.7-5.6 5.7-3 0-5.4-2.2-5.4-5.2 0-3.2 2.8-5.4 6.2-5.1v3.2c-1.7-.4-3.1.6-3.1 2 0 1.2 1 2.1 2.3 2.1 1.5 0 2.4-1 2.4-2.8V7z" fill="#8b93a7"/></svg>
+    TikTok LIVE API v1.0
+  </div>
+  <span>REST · WebSocket · SSE · Webhook</span>
+  <div class="spacer"></div>
+  <a href="/api" target="_blank" rel="noopener">/api (JSON referans)</a>
+</footer>
+
+<!-- ==================== MODALLER & TOAST ==================== -->
+<div class="overlay" id="addmodal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="am-title">
+    <h3 id="am-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 5v6M5 8h6"/></svg>Yayın ekle</h3>
+    <p>TikTok kullanıcı adı ya da yayın linki (örn. <code>virexhub1</code> ya da <code>https://www.tiktok.com/@virexhub1</code>). Yayıncı canlı değilse canlı olunca otomatik bağlanılır.</p>
+    <form id="maddform">
+      <input id="adduname" placeholder="kullanıcı adı / link" autocomplete="off" spellcheck="false">
+      <div class="msg" id="maddmsg"></div>
+      <div class="mrow">
+        <button class="btn ghost" type="button" id="maddcancel">İptal</button>
+        <button class="btn primary" type="submit" id="maddbtn">Ekle</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="goalmodal" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.6"/></svg>Elmas hedefi</h3>
+    <p>Hedefe ulaşıldığında Discord/Telegram bildirimi gider (tanımlıysa), panelde ses çalar ve OBS overlay çubuğu dolar. Hedef, mevcut toplamın üstünde olmalıdır.</p>
+    <form id="goalform">
+      <input id="goalinput" type="number" min="1" step="1" inputmode="numeric" placeholder="örn. 1000" autocomplete="off">
+      <div class="msg" id="goalmsg"></div>
+      <div class="mrow">
+        <button class="btn danger left" id="goalremove" type="button" hidden>Kaldır</button>
+        <button class="btn ghost" type="button" id="goalcancel">İptal</button>
+        <button class="btn primary" type="submit" id="goalsave">Kaydet</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="csvmodal" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>CSV dışa aktar</h3>
+    <p>@<b id="csvuser"></b> arşivi — indirme bağlantıları (arşiv kapalıysa dosyalar boş gelir):</p>
+    <div class="csvlinks">
+      <a class="btn" id="csv-events" download>Olaylar (olaylar.csv)</a>
+      <a class="btn" id="csv-summary" download>Günlük özet (ozet.csv)</a>
+      <a class="btn" id="csv-gifters" download>Gifterlar (gifterlar.csv)</a>
+    </div>
+    <div class="mrow"><button class="btn ghost" id="csvcancel" type="button">Kapat</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="keymodal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="km-title">
+    <h3 id="km-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="11" r="2.5"/><path d="M7 9.5L13.5 3M11 5.5l2 2M9 7.5l2 2"/></svg>API anahtarı</h3>
+    <p>Sunucu açılışta bir API anahtarı üretir (konsolda yazar, <code>data/apikey.json</code> dosyasında saklanır) ya da <code>.env</code>'deki <code>API_KEY</code>'i kullanır. Anahtarı buraya gir — yalnızca bu tarayıcıda saklanır.</p>
+    <input id="keyinput" placeholder="API anahtarı" autocomplete="off" spellcheck="false">
+    <div class="mrow">
+      <button class="btn danger left" id="keyremove" type="button" hidden>Kaldır</button>
+      <button class="btn ghost" id="keycancel" type="button">İptal</button>
+      <button class="btn primary" id="keysave" type="button">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="cmodal" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 id="c-title">Onay</h3>
+    <p id="c-text"></p>
+    <div class="mrow">
+      <button class="btn ghost" id="c-cancel" type="button">İptal</button>
+      <button class="btn primary" id="c-ok" type="button">Onayla</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<noscript><div style="padding:24px;color:#ff5470">Bu panel için JavaScript gerekli.</div></noscript>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------------------------------------------------------------- yardımcılar
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (n) => Number(n || 0).toLocaleString('tr-TR');
+  const fmtC = new Intl.NumberFormat('tr-TR', { notation: 'compact', maximumFractionDigits: 1 });
+  const uptimeText = (sec) => {
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return (h ? h + ' sa ' : '') + m + ' dk ' + s + ' sn';
+  };
+  const STATUS = {
+    connecting: 'bağlanıyor', connected: 'canlı', disconnected: 'beklemede',
+    error: 'hata', ended: 'bitti',
+  };
+
+  // ---------------------------------------------------------------- bildirim / modal
+  function toast(msg, kind = '', ms = 3600) {
+    const t = document.createElement('div');
+    t.className = 'toast ' + kind;
+    t.textContent = msg;
+    $('#toasts').appendChild(t);
+    requestAnimationFrame(() => t.classList.add('in'));
+    setTimeout(() => { t.classList.remove('in'); setTimeout(() => t.remove(), 250); }, ms);
+  }
+  function openModal(el) { el.hidden = false; requestAnimationFrame(() => el.classList.add('in')); }
+  function closeModal(el) { el.classList.remove('in'); setTimeout(() => { el.hidden = true; }, 160); }
+
+  /** Hedefe ulaşıldığında kısa bir "ding" sesi çalar. */
+  function beep() {
+    if (!soundOn) return;
+    try {
+      const ctx = beep.ctx || (beep.ctx = new (window.AudioContext || window.webkitAudioContext)());
+      const t0 = ctx.currentTime;
+      [880, 1174.7].forEach((f, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t0 + i * 0.18);
+        g.gain.exponentialRampToValueAtTime(0.22, t0 + i * 0.18 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.18 + 0.24);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(t0 + i * 0.18); o.stop(t0 + i * 0.18 + 0.27);
+      });
+    } catch { /* yoksay */ }
+  }
+  function renderSound() {
+    $('#snd-on').hidden = !soundOn;
+    $('#snd-off').hidden = soundOn;
+  }
+  $('#soundbtn').onclick = () => {
+    soundOn = !soundOn;
+    try { localStorage.setItem('sound', soundOn ? '1' : '0'); } catch { /* yoksay */ }
+    renderSound();
+    if (soundOn) beep();
+  };
+
+  let keyAsked = false;
+  function openKey() {
+    $('#keyinput').value = KEY;
+    $('#keyremove').hidden = !KEY;
+    keyAsked = true;
+    openModal($('#keymodal'));
+    $('#keyinput').focus();
+  }
+  function closeKey() { keyAsked = false; closeModal($('#keymodal')); }
+  $('#keybtn').onclick = openKey;
+  $('#keycancel').onclick = closeKey;
+  $('#keysave').onclick = () => {
+    KEY = $('#keyinput').value.trim();
+    try { KEY ? localStorage.setItem('apiKey', KEY) : localStorage.removeItem('apiKey'); } catch { /* yoksay */ }
+    closeKey();
+    pollStreams(); pollDetail();
+  };
+  $('#keyremove').onclick = () => {
+    KEY = '';
+    try { localStorage.removeItem('apiKey'); } catch { /* yoksay */ }
+    closeKey();
+    toast('API anahtarı kaldırıldı.');
+  };
+  [$('#keymodal'), $('#cmodal'), $('#addmodal'), $('#goalmodal'), $('#csvmodal')].forEach((ov) => ov.addEventListener('pointerdown', (e) => { if (e.target === ov) ov.id === 'keymodal' ? closeKey() : closeModal(ov); }));
+
+  function confirmBox(title, text, okLabel = 'Onayla') {
+    return new Promise((res) => {
+      $('#c-title').textContent = title;
+      $('#c-text').textContent = text;
+      $('#c-ok').textContent = okLabel;
+      openModal($('#cmodal'));
+      $('#c-ok').onclick = () => { closeModal($('#cmodal')); res(true); };
+      $('#c-cancel').onclick = () => { closeModal($('#cmodal')); res(false); };
+    });
+  }
+
+  // ---------------------------------------------------------------- hedef & dışa aktarım & OBS
+  function openGoal() {
+    if (!selected) return;
+    const s = streams.find((x) => x.username === selected);
+    $('#goalinput').value = s?.goal?.target || '';
+    $('#goalmsg').textContent = '';
+    $('#goalremove').hidden = !s?.goal;
+    openModal($('#goalmodal'));
+    $('#goalinput').focus();
+  }
+  $('#goalbtn').onclick = openGoal;
+  $('#goalcancel').onclick = () => closeModal($('#goalmodal'));
+  $('#goalremove').onclick = async () => {
+    if (!selected) return;
+    await api('/goals/' + encodeURIComponent(selected), { method: 'DELETE' }).catch(() => { /* yoksay */ });
+    closeModal($('#goalmodal'));
+    pollStreams();
+    toast('Hedef kaldırıldı.');
+  };
+  $('#goalform').onsubmit = async (e) => {
+    e.preventDefault();
+    if (!selected) return;
+    const target = Number($('#goalinput').value);
+    const msg = $('#goalmsg');
+    if (!Number.isFinite(target) || target <= 0) { msg.style.color = 'var(--err)'; msg.textContent = 'Geçerli bir sayı gir.'; return; }
+    const r = await api('/goals/' + encodeURIComponent(selected), { method: 'POST', body: JSON.stringify({ target }) }).catch(() => null);
+    if (r?.ok) { closeModal($('#goalmodal')); pollStreams(); toast(`Hedef kaydedildi: ${fmt(r.goal.target)} elmas.`, 'ok'); }
+    else { msg.style.color = 'var(--err)'; msg.textContent = r?.error || 'Kaydedilemedi.'; }
+  };
+
+  function openCsv() {
+    if (!selected) return;
+    const u = encodeURIComponent(selected);
+    $('#csvuser').textContent = selected;
+    const k = KEY ? `&key=${encodeURIComponent(KEY)}` : '';
+    $('#csv-events').href = `/api/archive/${u}/events.csv?limit=50000${k}`;
+    $('#csv-summary').href = `/api/archive/${u}/summary.csv${KEY ? '?key=' + encodeURIComponent(KEY) : ''}`;
+    $('#csv-gifters').href = `/api/archive/${u}/gifters.csv${KEY ? '?key=' + encodeURIComponent(KEY) : ''}`;
+    openModal($('#csvmodal'));
+  }
+  $('#csvbtn').onclick = openCsv;
+  $('#csvcancel').onclick = () => closeModal($('#csvmodal'));
+
+  $('#obsbtn').onclick = () => {
+    if (!selected) return;
+    copyText(`${location.origin}/overlay/${encodeURIComponent(selected)}${KEY ? '?key=' + encodeURIComponent(KEY) : ''}`);
+    toast('OBS overlay linki kopyalandı — OBS\'te "Tarayıcı" kaynağı olarak ekle.', 'ok', 5000);
+  };
+
+  // ---------------------------------------------------------------- durum
+  let KEY = '';
+  try { KEY = localStorage.getItem('apiKey') || ''; } catch { /* yoksay */ }
+  let selected = null, streams = [], feed = [], dirty = true, loaded = false;
+  let uiView = 'panel', offlineShown = false;
+  let favorites = [], favSet = new Set(), soundOn = true;
+  try { soundOn = localStorage.getItem('sound') !== '0'; } catch { /* yoksay */ }
+  const filters = new Set(['gift', 'chat', 'follow', 'share']);
+  try { uiView = localStorage.getItem('view') === 'api' ? 'api' : 'panel'; } catch { /* yoksay */ }
+
+  // ---------------------------------------------------------------- API
+  async function api(path, opts = {}) {
+    const r = await fetch('/api' + path, {
+      ...opts,
+      headers: { 'content-type': 'application/json', ...(KEY ? { 'x-api-key': KEY } : {}) },
+    });
+    if (r.status === 401) { if (!keyAsked) openKey(); throw new Error('401'); }
+    return r.json().catch(() => ({}));
+  }
+
+  // ---------------------------------------------------------------- WebSocket
+  let wsTries = 0;
+  function setLive(ok, connecting) {
+    $('#wsdot').className = 'dot ' + (ok ? 'connected' : connecting ? 'connecting' : 'error');
+    $('#wstext').textContent = ok ? 'canlı bağlantı' : connecting ? 'bağlanıyor…' : 'bağlantı koptu, yeniden deneniyor…';
+  }
+  function connectWS() {
+    setLive(false, true);
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    let ws;
+    try { ws = new WebSocket(`${proto}://${location.host}/ws${KEY ? '?key=' + encodeURIComponent(KEY) : ''}`); }
+    catch { setTimeout(connectWS, 3000); return; }
+    ws.onopen = () => { wsTries = 0; setLive(true); offlineShown = false; $('#offline').hidden = true; };
+    ws.onclose = () => {
+      setLive(false, false);
+      const d = Math.min(8000, 1000 * 2 ** Math.min(wsTries++, 3));
+      setTimeout(connectWS, d);
+    };
+    ws.onmessage = (m) => {
+      let e; try { e = JSON.parse(m.data); } catch { return; }
+      if (e.type === 'hello') return;
+      if (e.type === 'status') { pollStreams(); return; }
+      if (e.type === 'goal') { beep(); pollStreams(); toast(`Hedefe ulaşıldı: ${fmt(e.target)} elmas (@${e.username})`, 'ok', 6000); return; }
+      if (e.type === 'roomUser') return;
+      feed.push(e);
+      if (feed.length > 800) feed.splice(0, feed.length - 800);
+      if (e.username === selected) dirty = true;
+    };
+  }
+
+  // ---------------------------------------------------------------- yayın listesi
+  let sQuery = '';
+  function renderStreams() {
+    const box = $('#streams');
+    const list = streams.filter((s) => s.username.includes(sQuery));
+    $('#scount').textContent = streams.length;
+    if (!streams.length) { box.innerHTML = '<div class="empty">Henüz bağlı yayın yok.</div>'; return; }
+    if (!list.length) { box.innerHTML = '<div class="empty">Filtreye uyan yayın yok.</div>'; return; }
+    box.innerHTML = list.map((s) => {
+      const st = STATUS[s.status] || s.status;
+      const vc = s.stats?.viewerCount ? ` · ${fmtC.format(s.stats.viewerCount)} izleyici` : '';
+      const nick = s.nickname ? esc(s.nickname) + ' · ' : '';
+      const cc = 'a' + (s.username.length % 4);
+      return `<div class="srow ${s.username === selected ? 'sel' : ''}" data-u="${esc(s.username)}">
+        <div class="pwrap">
+          <span class="pava ${cc}">${esc(s.username[0].toUpperCase())}</span>
+          ${s.avatar ? `<img class="pava" src="${esc(s.avatar)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+          <span class="sdot ${esc(s.status)}"></span>
+        </div>
+        <div class="sinfo"><b>@${esc(s.username)}</b><small>${nick}${esc(st)}${vc}</small></div>
+        <button class="sfav ${favSet.has(s.username) ? 'on' : ''}" data-u="${esc(s.username)}" title="Favorilere ekle / çıkar">★</button>
+        <button class="sstop" data-u="${esc(s.username)}" title="Bağlantıyı kapat" aria-label="Bağlantıyı kapat">✕</button>
+      </div>`;
+    }).join('');
+  }
+  $('#sfilter').oninput = (e) => { sQuery = e.target.value.trim().toLowerCase().replace(/^@/, ''); renderStreams(); };
+
+  function renderFavs() {
+    const box = $('#favs');
+    box.innerHTML = favorites.length
+      ? favorites.map((u) => `<div class="frow" data-u="${esc(u)}"><span class="dot" style="background:${favSet.has(u) ? 'var(--gift)' : 'var(--muted2)'}"></span><b>@${esc(u)}</b><button class="fgo" title="Bağlan" aria-label="Bağlan">▶</button><button class="fdel" title="Favoriden çıkar" aria-label="Favoriden çıkar">✕</button></div>`).join('')
+      : '<div class="empty">★ ile favorilere ekle — sunucu açılışında otomatik bağlanılır.</div>';
+  }
+  $('#favs').onclick = async (e) => {
+    const row = e.target.closest('.frow');
+    if (!row) return;
+    const u = row.dataset.u;
+    if (e.target.closest('.fdel')) {
+      await api('/favorites/' + encodeURIComponent(u), { method: 'DELETE' }).catch(() => {});
+      favorites = favorites.filter((x) => x !== u); favSet.delete(u);
+      renderFavs(); renderStreams();
+      toast(`@${u} favorilerden çıkarıldı.`);
+      return;
+    }
+    connectUser(u, null, null);
+  };
+  async function loadFavorites() {
+    const f = await api('/favorites').catch(() => null);
+    if (Array.isArray(f)) { favorites = f; favSet = new Set(f); renderFavs(); renderStreams(); }
+  }
+  $('#streams').onclick = async (e) => {
+    const fav = e.target.closest('.sfav');
+    if (fav) {
+      e.stopPropagation();
+      const u = fav.dataset.u;
+      try {
+        if (favSet.has(u)) { await api('/favorites/' + encodeURIComponent(u), { method: 'DELETE' }); favSet.delete(u); toast(`@${u} favorilerden çıkarıldı.`); }
+        else { await api('/favorites', { method: 'POST', body: JSON.stringify({ username: u }) }); favSet.add(u); toast(`@${u} favorilere eklendi — sunucu açılışında otomatik bağlanacak.`, 'ok'); }
+      } catch { toast('Favori kaydedilemedi.', 'err'); }
+      renderStreams(); renderFavs();
+      return;
+    }
+    const stop = e.target.closest('.sstop');
+    if (stop) {
+      e.stopPropagation();
+      const u = stop.dataset.u;
+      if (await confirmBox('Bağlantı kapatılsın mı?', `@${u} yayınının bağlantısı kapatılacak.`, 'Kapat')) {
+        await api('/connect/' + encodeURIComponent(u), { method: 'DELETE' }).catch(() => {});
+        if (selected === u) selected = null;
+        await pollStreams(); renderMain();
+        toast(`@${u} bağlantısı kapatıldı.`);
+      }
+      return;
+    }
+    const row = e.target.closest('.srow');
+    if (row) select(row.dataset.u);
+  };
+
+  async function select(u) {
+    selected = u;
+    try { localStorage.setItem('lastUser', u); } catch { /* yoksay */ }
+    renderStreams(); renderMain();
+    const ev = await api(`/streams/${encodeURIComponent(u)}/events?limit=150`).catch(() => []);
+    if (Array.isArray(ev)) {
+      feed = feed.filter((e) => e.username !== u).concat(ev.map((e) => ({ username: u, ...e }))).sort((a, b) => a.ts - b.ts);
+    }
+    dirty = true;
+    pollDetail();
+  }
+
+  function renderMain() {
+    const s = streams.find((x) => x.username === selected);
+    $('#main-empty').hidden = !!s || !loaded;
+    $('#welcome').hidden = streams.length > 0;
+    $('#pick').hidden = streams.length === 0;
+    $('#main').hidden = !s;
+    document.title = s ? `@${s.username} — TikTok LIVE API` : 'TikTok LIVE API — Panel';
+    if (!s) return;
+    $('#title').textContent = '@' + s.username;
+    const b = $('#badge'); b.className = 'badge ' + s.status; b.textContent = STATUS[s.status] || s.status;
+    $('#err').textContent = s.error ? `Hata: ${s.error}` + (s.fatal ? '' : ' — otomatik yeniden denenecek.') : '';
+    $('#reconnectbtn').hidden = !(s.status === 'error' || s.status === 'ended');
+    const g = s.goal;
+    $('#goalbar').hidden = !g;
+    if (g) {
+      const span = Math.max(1, g.target - g.base);
+      const p = Math.max(0, Math.min(100, ((g.total - g.base) / span) * 100));
+      $('#gbfill').style.width = p.toFixed(1) + '%';
+      const t = $('#gbtext');
+      t.className = 'gb-text' + (g.reached ? ' done' : '');
+      t.textContent = `${fmt(g.total)} / ${fmt(g.target)} elmas (%${Math.round(p)})${g.reached ? ' — ulaşıldı' : ''}`;
+    }
+    setNum($('#s-viewers'), s.stats.viewerCount);
+    setNum($('#s-diamonds'), s.stats.totalDiamonds);
+    setNum($('#s-gifts'), s.stats.giftEvents);
+    setNum($('#s-likes'), s.stats.totalLikes);
+    setNum($('#s-chat'), s.stats.chatCount);
+    setNum($('#s-follow'), s.stats.followCount);
+    setNum($('#s-share'), s.stats.shareCount);
+    setNum($('#s-join'), s.stats.joinCount);
+  }
+
+  /** Sayacı yumuşak geçişle günceller. */
+  function setNum(el, v) {
+    const to = Number(v || 0), from = Number(el._v || 0);
+    el._v = to;
+    if (from === to) { el.textContent = fmt(to); return; }
+    const t0 = performance.now(), dur = 380;
+    cancelAnimationFrame(el._raf);
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / dur), e = 1 - (1 - k) ** 3;
+      el.textContent = fmt(Math.round(from + (to - from) * e));
+      if (k < 1) el._raf = requestAnimationFrame(step);
+    };
+    el._raf = requestAnimationFrame(step);
+  }
+
+  async function pollStreams() {
+    let list;
+    try { list = await api('/streams'); $('#offline').hidden = true; offlineShown = false; }
+    catch { if (!offlineShown && !loaded) { $('#offline').hidden = false; offlineShown = true; } return; }
+    if (!Array.isArray(list)) return;
+    streams = list; loaded = true;
+    let last = '';
+    try { last = localStorage.getItem('lastUser') || ''; } catch { /* yoksay */ }
+    if (selected && !streams.some((s) => s.username === selected)) { selected = null; }
+    const target = selected || (last && streams.some((s) => s.username === last) ? last : null);
+    if (target) { select(target); return; }
+    if (streams.length) { select(streams[0].username); return; }
+    renderStreams(); renderMain();
+  }
+
+  // ---------------------------------------------------------------- ekleme / kapatma
+  const RECENT_KEY = 'recentUsers';
+  function recentList() { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; } }
+  function renderRecent() {
+    const l = recentList();
+    $('#recent').innerHTML = l.length
+      ? 'Son kullanılanlar: ' + l.map((u) => `<button type="button" class="chip" data-u="${esc(u)}">@${esc(u)}</button>`).join('')
+      : '';
+  }
+  function remember(u) {
+    if (!u) return;
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify([u, ...recentList().filter((x) => x !== u)].slice(0, 6))); } catch { /* yoksay */ }
+    renderRecent();
+  }
+
+  function openAdd(prefill) {
+    $('#adduname').value = prefill || '';
+    $('#maddmsg').textContent = '';
+    openModal($('#addmodal'));
+    $('#adduname').focus();
+  }
+  $('#addbig').onclick = () => openAdd();
+  $('#maddcancel').onclick = () => closeModal($('#addmodal'));
+
+  async function connectUser(raw, btn, msg) {
+    const u = raw.trim();
+    if (!u) return;
+    if (btn) btn.disabled = true;
+    if (msg) { msg.textContent = 'Bağlanılıyor…'; msg.style.color = 'var(--muted)'; }
+    try {
+      const r = await api('/connect', { method: 'POST', body: JSON.stringify({ username: u }) });
+      if (r.ok) {
+        if (msg) msg.textContent = '';
+        closeModal($('#addmodal'));
+        toast(`@${r.stream?.username || u} ${r.stream?.status === 'connected' ? 'canlı bağlandı' : 'bağlanıyor'}.`, 'ok');
+      } else {
+        const t = (r.stream?.error || r.error || 'Bağlanılamadı') + (r.stream?.fatal ? '' : ' — canlı olunca otomatik denenecek.');
+        if (msg) { msg.style.color = 'var(--err)'; msg.textContent = t; }
+        toast(t, 'err', 5000);
+      }
+      remember(r.stream?.username);
+      await pollStreams();
+      const name = r.stream?.username; if (name) select(name);
+    } catch {
+      if (msg) { msg.style.color = 'var(--err)'; msg.textContent = 'İstek başarısız.'; }
+      toast('İstek başarısız.', 'err');
+    }
+    if (btn) btn.disabled = false;
+  }
+  $('#addform').onsubmit = (e) => { e.preventDefault(); connectUser($('#uname').value, $('#addbtn'), $('#addmsg')); };
+  $('#maddform').onsubmit = (e) => { e.preventDefault(); connectUser($('#adduname').value, $('#maddbtn'), $('#maddmsg')); };
+  $('#recent').onclick = (e) => { const b = e.target.closest('.chip'); if (b) connectUser(b.dataset.u, null, null); };
+
+  async function withSpin(btn, fn) {
+    const svg = btn.querySelector('svg');
+    btn.disabled = true;
+    if (svg) svg.classList.add('spin');
+    try { await fn(); } finally { btn.disabled = false; if (svg) svg.classList.remove('spin'); }
+  }
+
+  $('#stopbtn').onclick = async () => {
+    if (!selected) return;
+    if (await confirmBox('Bağlantı kapatılsın mı?', `@${selected} yayınının bağlantısı kapatılacak.`, 'Kapat')) {
+      await api('/connect/' + encodeURIComponent(selected), { method: 'DELETE' }).catch(() => {});
+      selected = null;
+      await pollStreams(); renderMain();
+      toast('Bağlantı kapatıldı.', 'ok');
+    }
+  };
+
+  $('#reconnectbtn').onclick = () => withSpin($('#reconnectbtn'), async () => {
+    if (!selected) return;
+    const u = selected;
+    await api('/connect/' + encodeURIComponent(u), { method: 'DELETE' }).catch(() => {});
+    const r = await api('/connect', { method: 'POST', body: JSON.stringify({ username: u }) }).catch(() => null);
+    await pollStreams();
+    select(u);
+    toast(r?.ok ? `@${u} yeniden bağlanıyor.` : `@${u} yeniden bağlanılamadı.`, r?.ok ? 'ok' : 'err');
+  });
+
+  // ---------------------------------------------------------------- olay akışı
+  const TAGS = { gift: 'HEDİYE', chat: 'MESAJ', like: 'BEĞENİ', follow: 'TAKİP', share: 'PAYLAŞIM', member: 'GİRİŞ' };
+  function row(e) {
+    const tag = TAGS[e.type];
+    if (!tag) return '';
+    if (e.type === 'gift' && !e.countable) return '';
+    const time = new Date(e.ts).toLocaleTimeString('tr-TR');
+    const u = e.user ? (e.user.uniqueId || e.user.nickname || '?') : '';
+    const cc = 'a' + (u.length % 4);
+    const ava = e.user?.profilePicture
+      ? `<img class="ava ${cc}" src="${esc(e.user.profilePicture)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`
+      : `<span class="ava ${cc}">${esc((u[0] || '?').toUpperCase())}</span>`;
+    let txt = '';
+    switch (e.type) {
+      case 'gift':
+        txt = `${e.giftImage ? `<img class="gimg" src="${esc(e.giftImage)}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}${esc(e.giftName)} ×${fmt(e.repeatCount)} <em>(${fmt(e.diamonds)} elmas)</em>`;
+        break;
+      case 'chat': txt = esc(e.comment); break;
+      case 'like': txt = '+' + fmt(e.likeCount); break;
+      case 'follow': txt = 'takip etti'; break;
+      case 'share': txt = 'yayını paylaştı'; break;
+      case 'member': txt = 'odaya girdi'; break;
+      default: return '';
+    }
+    return `<div class="ev ${e.type}">${ava}<div class="evm"><div class="evt"><span class="tag t-${e.type}">${tag}</span><b>@${esc(u)}</b><time>${time}</time></div><div class="evx">${txt}</div></div></div>`;
+  }
+  setInterval(() => {
+    if (!dirty || !selected || uiView !== 'panel') return;
+    dirty = false;
+    const html = feed.filter((e) => e.username === selected && filters.has(e.type)).slice(-150).reverse().map(row).join('');
+    $('#feed').innerHTML = html || '<div class="empty">Olay bekleniyor…</div>';
+  }, 300);
+  $('#filters').onchange = (e) => {
+    if (e.target.checked) filters.add(e.target.value); else filters.delete(e.target.value);
+    dirty = true;
+  };
+  $('#feedclear').onclick = () => {
+    feed = feed.filter((e) => e.username !== selected);
+    dirty = true;
+  };
+
+  // ---------------------------------------------------------------- listeler
+  function renderGifts(g) {
+    const list = Array.isArray(g?.gifts) ? g.gifts : [];
+    const total = g?.totalDiamonds;
+    const h3 = $('#gifts').previousElementSibling || $('#gifts').parentElement.querySelector('h3');
+    if (h3) h3.innerHTML = `Hediye kırılımı${Number.isFinite(total) ? ` <span class="chip-v">${fmt(total)} elmas</span>` : ''}`;
+    $('#gifts').innerHTML = list.length
+      ? list.slice(0, 12).map((x) => `<div class="row">${x.image ? `<img class="gi" src="${esc(x.image)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;gi-dot&quot;></span>'">` : '<span class="gi-dot"></span>'}<span class="n">${esc(x.giftName)}</span><span class="c">×${fmt(x.count)}</span><span class="v">${fmt(x.diamonds)}</span></div>`).join('')
+      : '<div class="empty">Henüz hediye yok.</div>';
+  }
+  function renderGifters(t) {
+    $('#gifters').innerHTML = Array.isArray(t) && t.length
+      ? t.map((x, i) => {
+        const u = x.user?.uniqueId || x.user?.nickname || '?';
+        const cc = 'a' + (u.length % 4);
+        const ava = x.user?.profilePicture
+          ? `<img class="ava rava ${cc}" src="${esc(x.user.profilePicture)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`
+          : `<span class="ava rava ${cc}">${esc((u[0] || '?').toUpperCase())}</span>`;
+        return `<div class="row"><span class="rank m${i + 1}">${i + 1}</span>${ava}<span class="n">@${esc(u)}</span><span class="v">${fmt(x.diamonds)}</span></div>`;
+      }).join('')
+      : '<div class="empty">Henüz hediye gönderen yok.</div>';
+  }
+
+  async function pollDetail() {
+    if (!selected || uiView !== 'panel') return;
+    const u = encodeURIComponent(selected);
+    const [gf, tg] = await Promise.all([
+      api(`/streams/${u}/gifts`), api(`/streams/${u}/top-gifters?limit=10`),
+    ]).catch(() => [null, null]);
+    renderGifts(gf); renderGifters(tg);
+  }
+
+  // ---------------------------------------------------------------- dokümantasyon
+  const base = () => location.origin;
+  const keyHdr = '  -H "x-api-key: ANAHTAR"   # API_KEY tanımlıysa';
+  function curl(m, p, body) {
+    let s = `curl -X ${m} "${base()}${p}" \\\n${keyHdr}`;
+    if (body) s += ` \\\n  -H "content-type: application/json" \\\n  -d '${body}'`;
+    return s;
+  }
+  const ENDPOINTS = [
+    { m: 'POST', p: '/api/connect', d: 'Yayına bağlanır. Gövde: <code>{"username":"kullanici | @kullanici | tiktok.com/@kullanici/live"}</code>. Zaten bağlıysa mevcut durum döner (<code>already:true</code>).', body: '{"username":"virexhub1"}' },
+    { m: 'GET', p: '/api/connect/:username', d: 'Adres çubuğundan tek tıkla test için bağlanma.' },
+    { m: 'DELETE', p: '/api/connect/:username', d: 'Bağlantıyı kapatır ve bellekten siler.' },
+    { m: 'GET', p: '/api/streams', d: 'Bağlı tüm yayınların özeti: durum, istatistik, uptime.' },
+    { m: 'GET', p: '/api/streams/:username', d: 'Tek yayın özeti. Alan seçimi: <code>?fields=stats.totalDiamonds,status</code>' },
+    { m: 'GET', p: '/api/streams/:username/history', d: '5 saniyede bir örneklenmiş zaman serisi (viewers/likes/diamonds/chat; en çok 1 saat).' },
+    { m: 'GET', p: '/api/streams/:username/events', d: 'Kayıtlı olaylar. Filtre: <code>?type=gift,chat&amp;limit=50&amp;since=&lt;ms&gt;</code> · Alan seçimi: <code>?fields=user.uniqueId,comment</code>' },
+    { m: 'GET', p: '/api/streams/:username/gifts', d: 'Hediye özeti: hediye adına göre adet ve elmas toplamı.' },
+    { m: 'GET', p: '/api/streams/:username/top-gifters', d: 'En çok elmas gönderenler. <code>?limit=10</code> (maks 100).' },
+    { m: 'GET', p: '/api/favorites', d: 'Favori yayın listesi. Buradaki kullanıcılar sunucu açılışında otomatik bağlanılır (<code>AUTO_CONNECT=0</code> ile kapatılır).' },
+    { m: 'POST', p: '/api/favorites', d: 'Favori ekle. Gövde: <code>{"username":"kullanici"}</code>', body: '{"username":"virexhub1"}' },
+    { m: 'DELETE', p: '/api/favorites/:username', d: 'Favoriden çıkar.' },
+    { m: 'POST', p: '/api/goals/:username', d: 'Elmas hedefi koy. Gövde: <code>{"target":1000}</code> — mevcut toplamın üstünde olmalı. Ulaşılınca <code>goal</code> olayı yayınlanır ve Discord/Telegram bildirimi gider.', body: '{"target":1000}' },
+    { m: 'GET', p: '/api/goals/:username', d: 'Mevcut hedef ve ilerleme: <code>{target, base, reached, total}</code>. Hedef yoksa <code>null</code>.' },
+    { m: 'DELETE', p: '/api/goals/:username', d: 'Hedefi temizler.' },
+    { m: 'GET', p: '/api/archive/:username/events.csv', d: 'Kalıcı kayıttaki olaylar CSV olarak (<code>ARCHIVE</code> açıksa). Filtre: <code>?from&to&type=gift,chat&limit=50000</code>.' },
+    { m: 'GET', p: '/api/archive/:username/summary.csv', d: 'Gün gün özet CSV: izleyici tepe, elmas, mesaj, beğeni, takip…' },
+    { m: 'GET', p: '/api/archive/:username/gifters.csv', d: 'Kullanıcı bazlı gifter toplamları CSV.' },
+    { m: 'GET', p: '/overlay/:username', d: 'OBS overlay sayfası (şeffaf arka plan). OBS\'te "Tarayıcı" kaynağı olarak ekle; API_KEY varsa sona <code>?key=ANAHTAR</code> ekle.' },
+    { m: 'SSE', p: '/api/streams/:username/sse', d: 'Server-Sent Events akışı. <code>?types=gift,chat&amp;fields=user.uniqueId</code>' },
+    { m: 'WS', p: '/ws?username=:username&types=gift,chat&key=ANAHTAR', d: 'WebSocket akışı. <code>username</code> verilmezse tüm yayınlar dinlenir.' },
+  ];
+  function codebox(text) {
+    const d = document.createElement('div'); d.className = 'codebox';
+    const pre = document.createElement('pre'); pre.className = 'code'; pre.textContent = text;
+    const b = document.createElement('button'); b.className = 'copy'; b.type = 'button'; b.textContent = 'kopyala';
+    b.addEventListener('click', () => copyText(text));
+    d.appendChild(pre); d.appendChild(b);
+    return d;
+  }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); toast('Kopyalandı.', 'ok', 1500); }
+    catch {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast('Kopyalandı.', 'ok', 1500); } catch { toast('Kopyalanamadı.', 'err'); }
+      ta.remove();
+    }
+  }
+  function renderDocs() {
+    const epBox = $('#doc-endpoints');
+    ENDPOINTS.forEach((e) => {
+      const el = document.createElement('div'); el.className = 'ep';
+      el.innerHTML = `<div class="ep-h"><span class="mb m-${e.m}">${e.m}</span><code class="ep-p">${esc(e.m === 'WS' ? 'ws://host/ws  →  ' + e.p.replace('/ws?username=:username&types=gift,chat&key=ANAHTAR', '…') : e.p)}</code></div><p class="ep-d">${e.d}</p>`;
+      el.appendChild(codebox(e.m === 'WS'
+        ? `const ws = new WebSocket("${base().replace(/^http/, 'ws')}/ws?username=virexhub1&types=gift,chat${KEY ? '&key=ANAHTAR' : ''}");\nws.onmessage = (m) => console.log(JSON.parse(m.data));`
+        : curl(e.m, e.m === 'WS' ? '/ws' : e.p, e.body)));
+      epBox.appendChild(el);
+    });
+
+    const EVENTS = [
+      { t: 'chat', n: 'Mesaj', d: 'Sohbet yorumu.', s: '{ "type": "chat", "ts": 1730000000000,\n  "user": { "uniqueId": "ayse", "nickname": "Ayşe",\n            "profilePicture": "https://…" },\n  "comment": "merhaba" }' },
+      { t: 'gift', n: 'Hediye', d: 'Seri (streak) hediyelerde countable=false iken elmas sayılmaz; seri repeatEnd=true ile biter ve o zaman sayılır.', s: '{ "type": "gift", "ts": 1730000000000,\n  "user": { "uniqueId": "ayse" },\n  "giftId": 565, "giftName": "Rose", "giftImage": "https://…",\n  "diamondEach": 1, "repeatCount": 5, "repeatEnd": true,\n  "streakable": true, "countable": true, "diamonds": 5 }' },
+      { t: 'like', n: 'Beğeni', d: 'likeCount bu olaydaki artış, totalLikes yayın toplamıdır.', s: '{ "type": "like", "ts": 1730000000000,\n  "user": { "uniqueId": "mehmet" },\n  "likeCount": 12, "totalLikes": 3400 }' },
+      { t: 'follow', n: 'Takip', d: 'Yayıncıyı takip etme.', s: '{ "type": "follow", "ts": 1730000000000,\n  "user": { "uniqueId": "zeynep" } }' },
+      { t: 'share', n: 'Paylaşım', d: 'Yayını paylaşma.', s: '{ "type": "share", "ts": 1730000000000,\n  "user": { "uniqueId": "can" }, "shareType": 1 }' },
+      { t: 'member', n: 'Giriş', d: 'İzleyicinin odaya girişi.', s: '{ "type": "member", "ts": 1730000000000,\n  "user": { "uniqueId": "elif" }, "memberCount": 42 }' },
+      { t: 'roomUser', n: 'İzleyici sayısı', d: 'Anlık izleyici sayısı ve popülerlik; düzenli gelir.', s: '{ "type": "roomUser", "ts": 1730000000000,\n  "viewerCount": 1284, "popularity": 2200 }' },
+      { t: 'emote', n: 'Emoji', d: 'Canlı yayın etkileşim emojileri.', s: '{ "type": "emote", "ts": 1730000000000,\n  "user": { "uniqueId": "burak" }, "emotes": "…" }' },
+      { t: 'subscribe', n: 'Abonelik', d: 'Yayıncıya abone olunduğunda gelir.', s: '{ "type": "subscribe", "ts": 1730000000000,\n  "user": { "uniqueId": "selin" } }' },
+      { t: 'question', n: 'Soru', d: 'Soru-cevap kutusundan yeni soru.', s: '{ "type": "question", "ts": 1730000000000,\n  "user": { "uniqueId": "ahmet" }, "question": "nerelisin?" }' },
+      { t: 'envelope', n: 'Zarf', d: 'Hediye zarfı / sandık olayı (ham veri).', s: '{ "type": "envelope", "ts": 1730000000000, "raw": "…" }' },
+      { t: 'streamEnd', n: 'Yayın sonu', d: 'Yayıncı yayınını bitirdi; otomatik yeniden bağlanmaz.', s: '{ "type": "streamEnd", "ts": 1730000000000 }' },
+      { t: 'goal', n: 'Hedef', d: 'Elmas hedefine ulaşıldığında bir kez gelir; panelde ses çalar, Discord/Telegram bildirim gönderilir.', s: '{ "type": "goal", "ts": 1730000000000,\n  "username": "virexhub1", "target": 1000,\n  "base": 250, "diamonds": 1000 }' },
+    ];
+    const evBox = $('#doc-events');
+    EVENTS.forEach((e) => {
+      const el = document.createElement('div'); el.className = 'evcard';
+      el.innerHTML = `<div class="ep-h"><span class="tag t-${e.t}">${esc(e.n)}</span><code class="ep-p">${e.t}</code></div><p class="evx">${esc(e.d)}</p>`;
+      el.appendChild(codebox(e.s));
+      evBox.appendChild(el);
+    });
+
+    $('#doc-quick').appendChild(codebox(
+      `# 1) Yayına bağlan\ncurl -X POST "${base()}/api/connect" \\\n${keyHdr} \\\n  -H "content-type: application/json" \\\n  -d '{"username":"virexhub1"}'\n\n# 2) İstatistik\ncurl "${base()}/api/streams/virexhub1" \\\n${keyHdr}\n\n# 3) Canlı olayları dinle (bir sonraki bölüm: WebSocket / SSE)`));
+
+    $('#doc-ws').appendChild(codebox(
+      `const ws = new WebSocket(\n  "${base().replace(/^http/, 'ws')}/ws?username=virexhub1&types=gift,chat${KEY ? '&key=ANAHTAR' : ''}"\n);\nws.onmessage = (m) => {\n  const e = JSON.parse(m.data);\n  if (e.type === "gift") console.log(e.user.uniqueId, e.giftName, e.diamonds);\n};\n\n// Bağlantı açıkken filtreyi değiştir:\nws.send(JSON.stringify({ types: ["gift"], fields: ["user.uniqueId", "diamonds"] }));`));
+
+    $('#doc-sse').appendChild(codebox(
+      `const es = new EventSource(\n  "${base()}/api/streams/virexhub1/sse?types=gift,chat${KEY ? '&key=ANAHTAR' : ''}"\n);\nes.addEventListener("hello", (e) => console.log("özet:", JSON.parse(e.data)));\nes.addEventListener("gift", (e) => console.log("hediye:", JSON.parse(e.data)));`));
+
+    $('#doc-domain').appendChild(codebox(
+      `# 1) Proje klasöründe .env dosyası oluştur (örnek dosya: .env.ornek)\nHOST=0.0.0.0\nPORT=3000\nAPI_KEY=uzun-ve-gizli-bir-anahtar\n\n# 2) Sunucuyu yeniden başlat (npm start ya da baslat.bat)\n# 3) Panel ve API artık http://<sunucu-adresi>:3000 üzerinden çalışır`));
+
+    $('#doc-domain').appendChild(codebox(
+      `# nginx reverse proxy örneği (WebSocket dahil)\nserver {\n  listen 80;\n  server_name panel.ornek.com;\n\n  location / {\n    proxy_pass http://127.0.0.1:3000;\n    proxy_set_header Host $host;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n  }\n\n  location /ws {\n    proxy_pass http://127.0.0.1:3000;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection "upgrade";\n  }\n}`));
+  }
+
+  // ---------------------------------------------------------------- görünüm
+  function setView(v) {
+    uiView = v;
+    try { localStorage.setItem('view', v); } catch { /* yoksay */ }
+    $('#view-panel').hidden = v !== 'panel';
+    $('#view-api').hidden = v !== 'api';
+    $('#tab-panel').classList.toggle('on', v === 'panel');
+    $('#tab-api').classList.toggle('on', v === 'api');
+    document.title = v === 'api'
+      ? 'API Dokümantasyonu — TikTok LIVE API'
+      : (selected ? `@${selected} — TikTok LIVE API` : 'TikTok LIVE API — Panel');
+  }
+  $('#tab-panel').onclick = () => setView('panel');
+  $('#tab-api').onclick = () => setView('api');
+  $('#view-api').addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#docs-"]');
+    if (a) e.preventDefault();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!$('#keymodal').hidden) closeKey();
+      if (!$('#cmodal').hidden) closeModal($('#cmodal'));
+      if (!$('#addmodal').hidden) closeModal($('#addmodal'));
+      if (!$('#goalmodal').hidden) closeModal($('#goalmodal'));
+      if (!$('#csvmodal').hidden) closeModal($('#csvmodal'));
+      return;
+    }
+    const tag = document.activeElement?.tagName;
+    if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+      e.preventDefault();
+      if (uiView !== 'panel') setView('panel');
+      if ($('#main-empty').hidden) $('#uname').focus(); else openAdd();
+    }
+  });
+
+  // ---------------------------------------------------------------- açılış animasyonu
+  const splash = $('#splash');
+  const endSplash = () => {
+    if (!splash || splash.classList.contains('out')) return;
+    splash.classList.add('out');
+    setTimeout(() => splash.remove(), 600);
+  };
+  splash.addEventListener('pointerdown', endSplash);
+  document.addEventListener('keydown', endSplash, { once: true });
+  setTimeout(endSplash, 2600);
+
+  // ---------------------------------------------------------------- başlat
+  renderDocs();
+  renderRecent();
+  renderSound();
+  loadFavorites();
+  setView(uiView);
+  pollStreams();
+  connectWS();
+  setInterval(pollStreams, 2000);
+  setInterval(pollDetail, 5000);
+  setInterval(() => {
+    if (!selected || uiView !== 'panel') return;
+    const s = streams.find((x) => x.username === selected);
+    if (!s) return;
+    $('#uptime').textContent = 'çalışma süresi: ' + uptimeText(Math.round((Date.now() - s.startedAt) / 1000));
+  }, 1000);
+})();
+</script>
+</body>
+</html>

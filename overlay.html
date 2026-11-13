@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>OBS Overlay</title>
+<style>
+  html, body { margin: 0; background: transparent; color: #fff; font: 14px/1.4 system-ui, "Segoe UI", Roboto, sans-serif; }
+  #wrap { display: flex; align-items: center; gap: 10px; padding: 10px; flex-wrap: wrap; }
+  .box { background: rgba(10,12,18,.72); border: 1px solid rgba(255,255,255,.14); border-radius: 14px; padding: 9px 14px; display: flex; align-items: center; gap: 10px; min-width: 0; backdrop-filter: blur(4px); }
+  .gtitle { font-size: 10.5px; letter-spacing: 1.2px; color: #9aa3b8; text-transform: uppercase; }
+  .goal { min-width: 300px; flex: 1; }
+  .gbar { height: 14px; background: rgba(255,255,255,.12); border-radius: 99px; overflow: hidden; margin: 5px 0 4px; }
+  .gbar i { display: block; height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, #25f4ee, #fe2c55); transition: width .6s ease; }
+  .gtext { font-size: 14.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .dia b { color: #ffd166; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .sub { color: #9aa3b8; font-size: 12px; }
+  .pp { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #262d3c; flex: none; }
+  .name { font-weight: 700; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gift img { width: 34px; height: 34px; border-radius: 7px; flex: none; object-fit: cover; }
+  .pop { animation: pop .45s ease-out; }
+  @keyframes pop { 0% { transform: scale(.75); opacity: 0; } 60% { transform: scale(1.07); } 100% { transform: scale(1); opacity: 1; } }
+  #err { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); background: rgba(254,44,85,.9); color: #fff; padding: 6px 14px; border-radius: 99px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="box goal" id="goalbox" hidden>
+    <div style="flex:1;min-width:0">
+      <div class="gtitle">Elmas hedefi</div>
+      <div class="gbar"><i id="gfill"></i></div>
+      <div class="gtext" id="gtext"></div>
+    </div>
+  </div>
+  <div class="box dia" id="diabox" hidden><b id="dtot">0</b><span class="sub">elmas</span></div>
+  <div class="box top" id="topbox" hidden>
+    <img class="pp" id="tpp" alt="" onerror="this.style.visibility='hidden'">
+    <div style="min-width:0">
+      <div class="gtitle">En çok hediye gönderen</div>
+      <div class="name" id="tname"></div>
+      <div class="sub" id="tdia"></div>
+    </div>
+  </div>
+  <div class="box gift" id="lastbox" hidden>
+    <img id="lgimg" alt="" onerror="this.style.display='none'">
+    <div style="min-width:0">
+      <div class="gtitle">Son hediye</div>
+      <div class="name" id="lgname"></div>
+      <div class="sub" id="lguser"></div>
+    </div>
+  </div>
+</div>
+<div id="err" hidden></div>
+
+<script>
+(() => {
+  'use strict';
+  const qs = new URLSearchParams(location.search);
+  const KEY = qs.get('key') || '';
+  const username = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
+  const hdrs = { 'content-type': 'application/json', ...(KEY ? { 'x-api-key': KEY } : {}) };
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (n) => Number(n || 0).toLocaleString('tr-TR');
+  const enc = encodeURIComponent;
+  let lastGiftKey = '', lastTopKey = '';
+
+  function fail(msg) { const e = $('#err'); e.textContent = msg; e.hidden = false; }
+  function clearFail() { $('#err').hidden = true; }
+
+  function setGoal(su) {
+    const g = su.goal;
+    $('#goalbox').hidden = !g;
+    if (!g) return;
+    const span = Math.max(1, g.target - g.base);
+    const p = Math.max(0, Math.min(100, ((g.total - g.base) / span) * 100));
+    $('#gfill').style.width = p + '%';
+    $('#gtext').textContent = `${fmt(g.total)} / ${fmt(g.target)} (%${Math.round(p)})${g.reached ? ' — ulaşıldı!' : ''}`;
+  }
+
+  function setTop(t) {
+    const x = Array.isArray(t) ? t[0] : null;
+    $('#topbox').hidden = !x;
+    if (!x) return;
+    const u = x.user || {};
+    const key = (u.uniqueId || '') + ':' + x.diamonds;
+    if (key === lastTopKey) return;
+    lastTopKey = key;
+    $('#tname').textContent = '@' + (u.uniqueId || u.nickname || '?');
+    $('#tdia').textContent = fmt(x.diamonds) + ' elmas';
+    const pp = $('#tpp');
+    if (u.profilePicture) { pp.style.visibility = 'visible'; pp.src = u.profilePicture; } else pp.style.visibility = 'hidden';
+    const box = $('#topbox'); box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
+  }
+
+  function setLastGift(e) {
+    $('#lastbox').hidden = false;
+    const key = `${e.user?.uniqueId || ''}:${e.giftName}:${e.ts}`;
+    if (key === lastGiftKey) return;
+    lastGiftKey = key;
+    $('#lgname').textContent = `${e.giftName || 'hediye'} ×${e.repeatCount || 1}`;
+    $('#lguser').textContent = '@' + (e.user?.uniqueId || e.user?.nickname || '?');
+    const img = $('#lgimg');
+    if (e.giftImage || e.image) { img.style.display = ''; img.src = e.giftImage || e.image; } else img.style.display = 'none';
+    const box = $('#lastbox'); box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
+  }
+
+  async function poll() {
+    try {
+      const [su, gf, tg] = await Promise.all([
+        fetch(`/api/streams/${enc(username)}`, { headers: hdrs }),
+        fetch(`/api/streams/${enc(username)}/gifts`, { headers: hdrs }),
+        fetch(`/api/streams/${enc(username)}/top-gifters?limit=1`, { headers: hdrs }),
+      ]);
+      if (su.status === 401) return fail('API anahtarı gerekli — adresin sonuna &key=ANAHTAR ekleyin.');
+      if (!su.ok) return;
+      clearFail();
+      const summary = await su.json();
+      const gifts = await gf.json().catch(() => null);
+      const top = await tg.json().catch(() => null);
+      $('#diabox').hidden = false;
+      $('#dtot').textContent = fmt(summary.stats?.totalDiamonds);
+      setGoal(summary);
+      const gList = Array.isArray(gifts?.gifts) ? gifts.gifts : [];
+      if (gList.length) {
+        $('#lastbox').hidden = false;
+        $('#lgname').textContent = `${gList[0].giftName} ×${fmt(gList[0].count)}`;
+        $('#lguser').textContent = fmt(gList[0].diamonds) + ' elmas';
+        if (gList[0].image) { $('#lgimg').style.display = ''; $('#lgimg').src = gList[0].image; } else $('#lgimg').style.display = 'none';
+      }
+      setTop(top);
+    } catch { /* bağlantı yok: sessizce tekrar dene */ }
+  }
+
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    let ws;
+    try { ws = new WebSocket(`${proto}://${location.host}/ws?username=${enc(username)}${KEY ? '&key=' + enc(KEY) : ''}`); }
+    catch { setTimeout(connectWS, 3000); return; }
+    ws.onmessage = (m) => {
+      let e; try { e = JSON.parse(m.data); } catch { return; }
+      if (e.type === 'gift' && e.countable !== false) setLastGift(e);
+      if (e.type === 'goal' || e.type === 'status') poll();
+    };
+    ws.onclose = () => setTimeout(connectWS, 3000);
+  }
+
+  if (!username) fail('Kullanıcı adı yok — /overlay/@kullanici biçiminde kullanın.');
+  else { poll(); connectWS(); setInterval(poll, 3000); }
+})();
+</script>
+</body>
+</html>
